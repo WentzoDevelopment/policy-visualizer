@@ -86,15 +86,34 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
         "enforcementPolicies": [],
         "radiusEnfProfiles": [],
         "postAuthEnfProfiles": [],
+        "tacacsEnfProfiles": [],
     }
 
-    # --- Services ---
+    # --- RADIUS Services ---
     for svc in root.findall(f".//{_tag('RadiusEnforcementService')}"):
         expr_el = svc.find(f".//{_tag('RuleExpression')}")
         model["services"].append({
             "name": svc.get("name", ""),
             "description": svc.get("description", ""),
             "enabled": svc.get("enabled", "true"),
+            "serviceType": "RADIUS",
+            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
+            "matchExpression": _rule_expressions(expr_el),
+            "authMethods": _string_list(svc, "AuthMethodNameList"),
+            "authSources": _string_list(svc, "AuthSourceNameList"),
+            "autzSources": _string_list(svc, "AutzSourceNameList"),
+            "roleMappings": _string_list(svc, "RoleMappingNameList"),
+            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
+        })
+
+    # --- TACACS Services ---
+    for svc in root.findall(f".//{_tag('TacacsEnforcementService')}"):
+        expr_el = svc.find(f".//{_tag('RuleExpression')}")
+        model["services"].append({
+            "name": svc.get("name", ""),
+            "description": svc.get("description", ""),
+            "enabled": svc.get("enabled", "true"),
+            "serviceType": "TACACS",
             "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
             "matchExpression": _rule_expressions(expr_el),
             "authMethods": _string_list(svc, "AuthMethodNameList"),
@@ -198,6 +217,14 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "description": pp.get("description", ""),
             "postAuthType": pp.get("postAuthType", ""),
             "attributes": attrs,
+        })
+
+    # --- TACACS Enforcement Profiles ---
+    for tp in root.findall(f".//{_tag('TacacsEnfProfile')}"):
+        model["tacacsEnfProfiles"].append({
+            "name": tp.get("name", ""),
+            "description": tp.get("description", ""),
+            "action": tp.get("action", ""),
         })
 
     return model

@@ -45,6 +45,7 @@ class FlowEdge:
 class FlowIR:
     service_id: str
     service_name: str
+    service_type: str = "RADIUS"
     nodes: list[FlowNode] = field(default_factory=list)
     edges: list[FlowEdge] = field(default_factory=list)
 
@@ -65,7 +66,7 @@ def _profiles_label(profile_names: list[str]) -> str:
 
 
 def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
-    flow = FlowIR(service_id=service.id, service_name=service.name)
+    flow = FlowIR(service_id=service.id, service_name=service.name, service_type=service.service_type)
     sid = service.id
 
     # -----------------------------------------------------------------------

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Tue Feb 24 11:11:48 MST 2026" version="6.11"/>
+  <TacacsEnforcementServices>
+    <TacacsEnforcementService description="Access layer TACACS service" name="Switch Login Cisco TACACS" enabled="true">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Access Layer Switches" value="NadGroup:3009" operator="BELONGS_TO_GROUP" name="NAD-IP-Address" type="Connection"/>
+          <RuleAttribute displayValue="254" value="254" operator="NOT_ENDS_WITH" name="NAD-IP-Address" type="Connection"/>
+          <RuleAttribute displayValue="253" value="253" operator="NOT_ENDS_WITH" name="NAD-IP-Address" type="Connection"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>TACACS_ENFORCEMENT</ServiceTemplate>
+      <AuthSourceNameList>
+        <string>AD</string>
+        <string>[Local User Repository]</string>
+      </AuthSourceNameList>
+      <RoleMappingNameList>
+        <string>TACACS Switch Login</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>Switch Login Policy</string>
+      </EnfPolicyNameList>
+    </TacacsEnforcementService>
+  </TacacsEnforcementServices>
+  <AuthSources>
+    <AuthSource description="Active Directory" name="AD" isAuthorizationSource="true" type="AD"/>
+    <AuthSource description="Local user database" name="[Local User Repository]" isAuthorizationSource="true" type="Local"/>
+  </AuthSources>
+  <Roles>
+    <Role description="" name="[Other]"/>
+    <Role description="" name="[TACACS Super Admin]"/>
+  </Roles>
+  <RoleMappings>
+    <RoleMapping description="" name="TACACS Switch Login" ruleCombineAlgo="first-applicable" dftRoleName="[Other]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="Tier-2-Operators-NSG-AL" value="Tier-2-Operators-NSG-AL" operator="EQUALS" name="groupName" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[TACACS Super Admin]" value="3005" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </RoleMapping>
+  </RoleMappings>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="" name="Switch Login Policy" policyType="TACACS" defaultProfileName="[TACACS Network Admin]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="[TACACS Super Admin]" value="[TACACS Super Admin]" operator="MATCHES_ANY" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="TACACS Cisco Priv 15" value="3021" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <TacacsEnfProfiles>
+    <TacacsEnfProfile description="" name="TACACS Cisco Priv 15" action="Accept" autzStatus="PASS_ADD" maxPrivLevel="15"/>
+    <TacacsEnfProfile description="" name="[TACACS Network Admin]" action="Accept" autzStatus="PASS_ADD" maxPrivLevel="1"/>
+  </TacacsEnfProfiles>
+</TipsContents>

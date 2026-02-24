@@ -25,6 +25,7 @@ class FlowEdgeSchema(BaseModel):
 class FlowIRSchema(BaseModel):
     service_id: str
     service_name: str
+    service_type: str = "RADIUS"
     nodes: list[FlowNodeSchema]
     edges: list[FlowEdgeSchema]
 
@@ -33,6 +34,7 @@ class ServiceSummary(BaseModel):
     id: str
     name: str
     description: str = ""
+    service_type: str = "RADIUS"
 
 
 class ServiceListResponse(BaseModel):
