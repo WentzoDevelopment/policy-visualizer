@@ -18,12 +18,14 @@ class Op(str, Enum):
     not_contains = "not_contains"
     starts_with = "starts_with"
     ends_with = "ends_with"
+    not_ends_with = "not_ends_with"
     regex = "regex"
     in_ = "in"
     exists = "exists"
     not_exists = "not_exists"
     less_than = "less_than"
     greater_than = "greater_than"
+    belongs_to_group = "belongs_to_group"
 
     @classmethod
     def from_raw(cls, raw: str) -> "Op":
@@ -34,12 +36,16 @@ class Op(str, Enum):
             "NOT_CONTAINS": cls.not_contains,
             "STARTS_WITH": cls.starts_with,
             "ENDS_WITH": cls.ends_with,
+            "NOT_ENDS_WITH": cls.not_ends_with,
             "REGEX_MATCH": cls.regex,
             "IN": cls.in_,
+            # Per-predicate MATCHES_ANY means "attribute is member of set" → in
+            "MATCHES_ANY": cls.in_,
             "EXISTS": cls.exists,
             "NOT_EXISTS": cls.not_exists,
             "LESS_THAN": cls.less_than,
             "GREATER_THAN": cls.greater_than,
+            "BELONGS_TO_GROUP": cls.belongs_to_group,
         }
         upper = raw.upper()
         if upper not in mapping:

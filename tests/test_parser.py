@@ -82,3 +82,44 @@ def test_radius_enf_profiles(raw):
     names = [p["name"] for p in raw["radiusEnfProfiles"]]
     assert "[Allow Access Profile]" in names
     assert "[Deny Access Profile]" in names
+
+
+def test_radius_service_has_service_type(raw):
+    assert raw["services"][0]["serviceType"] == "RADIUS"
+
+
+# ---------------------------------------------------------------------------
+# TACACS fixture tests
+# ---------------------------------------------------------------------------
+
+TACACS_FIXTURE = Path(__file__).parent / "fixtures" / "TacacsService.xml"
+
+
+@pytest.fixture(scope="module")
+def tacacs_raw():
+    return parse(TACACS_FIXTURE)
+
+
+def test_tacacs_service_found(tacacs_raw):
+    assert len(tacacs_raw["services"]) == 1
+
+
+def test_tacacs_service_name(tacacs_raw):
+    assert tacacs_raw["services"][0]["name"] == "Switch Login Cisco TACACS"
+
+
+def test_tacacs_service_type_field(tacacs_raw):
+    assert tacacs_raw["services"][0]["serviceType"] == "TACACS"
+
+
+def test_tacacs_match_expression_operators(tacacs_raw):
+    attrs = tacacs_raw["services"][0]["matchExpression"]["attributes"]
+    operators = {a["operator"] for a in attrs}
+    assert "BELONGS_TO_GROUP" in operators
+    assert "NOT_ENDS_WITH" in operators
+
+
+def test_tacacs_enf_profiles_parsed(tacacs_raw):
+    names = [p["name"] for p in tacacs_raw["tacacsEnfProfiles"]]
+    assert "TACACS Cisco Priv 15" in names
+    assert "[TACACS Network Admin]" in names

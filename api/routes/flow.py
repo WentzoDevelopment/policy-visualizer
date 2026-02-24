@@ -44,7 +44,7 @@ async def list_services(file: UploadFile = File(...)):
     """Return the list of services found in the uploaded XML file."""
     _, ir = _parse_and_build(file)
     services = [
-        ServiceSummary(id=s.id, name=s.name, description=s.description)
+        ServiceSummary(id=s.id, name=s.name, description=s.description, service_type=s.service_type)
         for s in ir.services.values()
     ]
     if not services:
@@ -94,6 +94,7 @@ async def get_flow(
     return FlowIRSchema(
         service_id=flow.service_id,
         service_name=flow.service_name,
+        service_type=flow.service_type,
         nodes=nodes,
         edges=edges,
     )

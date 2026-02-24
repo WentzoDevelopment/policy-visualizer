@@ -121,6 +121,7 @@ class Service:
     id: str
     name: str
     description: str
+    service_type: str
     match: BooleanExpr | None
     authentication: ServiceAuthentication
     role_mapping_policy_id: str
@@ -196,6 +197,15 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             id=pid, name=pp["name"],
             profile_type="post_auth",
             description=pp.get("description", ""),
+        )
+    for tp in raw.get("tacacsEnfProfiles", []):
+        pid = _stable_id(tp["name"])
+        action = tp.get("action", "").lower()
+        ir.enforcement_profiles[pid] = EnforcementProfile(
+            id=pid, name=tp["name"],
+            profile_type="tacacs_accept" if action == "accept" else "tacacs_other",
+            action=action,
+            description=tp.get("description", ""),
         )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
@@ -312,6 +322,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             id=svid,
             name=svc["name"],
             description=svc.get("description", ""),
+            service_type=svc.get("serviceType", "RADIUS"),
             match=match_expr,
             authentication=ServiceAuthentication(
                 method_ids=method_ids,

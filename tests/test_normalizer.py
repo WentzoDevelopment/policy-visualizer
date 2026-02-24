@@ -31,6 +31,19 @@ def test_op_from_raw_unknown():
         Op.from_raw("UNKNOWN_OP")
 
 
+def test_op_belongs_to_group():
+    assert Op.from_raw("BELONGS_TO_GROUP") == Op.belongs_to_group
+
+
+def test_op_not_ends_with():
+    assert Op.from_raw("NOT_ENDS_WITH") == Op.not_ends_with
+
+
+def test_op_matches_any_predicate_maps_to_in():
+    # MATCHES_ANY as a per-predicate operator (not expression-level) → in
+    assert Op.from_raw("MATCHES_ANY") == Op.in_
+
+
 # ---------------------------------------------------------------------------
 # Single predicate unwrapping
 # ---------------------------------------------------------------------------
