@@ -73,7 +73,7 @@ export function DecisionNode({ data }: NodeProps) {
         justifyContent: "center",
       }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="left" />
       <Handle type="target" position={Position.Top} id="top" />
       <div
         style={{
@@ -164,7 +164,7 @@ export function EndNode({ data }: NodeProps) {
         padding: "10px 14px",
       }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="left" />
       <Handle type="target" position={Position.Top} id="top" />
       <div>
         {multilineLabel(d.label)}

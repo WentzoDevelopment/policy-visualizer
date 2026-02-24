@@ -126,7 +126,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const rmGroup = result.filter(
     (n) => (n.data.rank_group as string | undefined) === "rm_chain"
   );
-  if (rmGroup.length >= 2) {
+  if (rmGroup.length >= 1) {
     rmGroup.sort((a, b) => a.position.x - b.position.x);
     const chainX = rmGroup[0].position.x;
     let y = rmGroup[0].position.y;
@@ -187,7 +187,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const enfGroup = result.filter(
     (n) => (n.data.rank_group as string | undefined) === "enf_chain"
   );
-  if (enfGroup.length >= 2) {
+  if (enfGroup.length >= 1) {
     enfGroup.sort((a, b) => a.position.x - b.position.x);
     const chainX = enfChainStartX ?? enfGroup[0].position.x;
     let y = enfGroup[0].position.y;
@@ -280,7 +280,8 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     };
   });
 
-  // Step 2: Relocate any non-chain node that overlaps a chain node.
+  // Step 2: Relocate any non-chain node that overlaps a chain node OR that dagre
+  // placed in the same x column as a chain node but whose source is to the left.
   // Place it below its source, then nudge downward past any other non-chain node
   // it would land on top of (e.g. auth_fail below auth_node must not collide with
   // no_match_end which was just snapped below svc_match in step 1).
@@ -291,9 +292,26 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
       const cn = nodeById.get(cid);
       return cn ? bboxOverlap(nb, nodeBBox(cn)) : false;
     });
-    if (!collidesChain) return;
 
     const sources = inEdges.get(node.id) ?? [];
+
+    // Also catch nodes that dagre placed in the same x column as a chain node but
+    // whose source is to the left of the chain (e.g. auth_fail shares a dagre rank
+    // with rm_rule_0 but its source, auth_node, is one rank to the left). Without
+    // this check, auth_fail sits at rm_rule_0.x and blocks the NO edge routing path.
+    const inChainXColumn = !collidesChain && [...chainIds].some((cid) => {
+      const cn = nodeById.get(cid);
+      if (!cn) return false;
+      const cb = nodeBBox(cn);
+      const xOverlaps = nb.x - 8 < cb.x + cb.w && nb.x + nb.w + 8 > cb.x;
+      if (!xOverlaps) return false;
+      return sources.every((srcId) => {
+        const src = nodeById.get(srcId);
+        return src ? src.position.x + (src.measured?.width ?? 160) <= cb.x : false;
+      });
+    });
+
+    if (!collidesChain && !inChainXColumn) return;
     if (sources.length === 0) return;
     const srcNode = nodeById.get(sources[0]);
     if (!srcNode) return;
@@ -383,14 +401,20 @@ export default function FlowDiagram({ flow }: Props) {
     const nodeTypeById = new Map(flow.nodes.map((n) => [n.id, n.type]));
     const rawEdges: Edge[] = flow.edges.map((e, i) => ({
       id: `edge-${i}`,
+      type: "smoothstep",
       source: e.from_id,
       target: e.to_id,
       sourceHandle: e.label === "YES" ? "yes" : e.label === "NO" ? "no" : e.label === "FAIL" ? "fail" : undefined,
       targetHandle: (() => {
         const tt = nodeTypeById.get(e.to_id);
-        // Route into the top handle when the edge arrives from directly above.
+        // NO chain edges arrive from above — use top handle.
         if (e.label === "NO" && tt === "decision") return "top";
+        // NO/FAIL terminal edges arrive from above — use top handle.
         if ((e.label === "NO" || e.label === "FAIL") && tt === "end") return "top";
+        // All other forward-path edges to decisions use the explicit left handle.
+        if (tt === "decision") return "left";
+        // All other forward-path edges to end nodes use the explicit left handle.
+        if (tt === "end") return "left";
         return undefined;
       })(),
       label: e.label || undefined,
