@@ -24,7 +24,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import { toPng } from "html-to-image";
+import { toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
@@ -369,35 +369,44 @@ interface ExportPanelProps {
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
   const { fitView, getViewport, setViewport } = useReactFlow();
   const [exporting, setExporting] = useState(false);
+  const [transparentBg, setTransparentBg] = useState(false);
 
-  const captureImage = useCallback(async (): Promise<string> => {
-    const saved = getViewport();
-    fitView({ duration: 0, padding: 0.1 });
-    // Wait two animation frames so React Flow commits the viewport change.
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-    );
-    const dataUrl = await toPng(wrapperRef.current!, {
-      filter: (el: HTMLElement) => {
-        const cl = el.classList;
-        if (!cl) return true;
-        // Exclude React Flow UI chrome (controls, minimap, panels) from the export.
-        return (
-          !cl.contains("react-flow__panel") &&
-          !cl.contains("react-flow__controls") &&
-          !cl.contains("react-flow__minimap")
-        );
-      },
-    });
-    setViewport(saved, { duration: 0 });
-    return dataUrl;
-  }, [fitView, getViewport, setViewport, wrapperRef]);
+  const captureImage = useCallback(
+    async (format: "png" | "svg", transparent: boolean): Promise<string> => {
+      const saved = getViewport();
+      fitView({ duration: 0, padding: 0.1 });
+      // Wait two animation frames so React Flow commits the viewport change.
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      );
+      const options = {
+        filter: (el: HTMLElement) => {
+          const cl = el.classList;
+          if (!cl) return true;
+          // Exclude React Flow UI chrome (controls, minimap, panels) from the export.
+          return (
+            !cl.contains("react-flow__panel") &&
+            !cl.contains("react-flow__controls") &&
+            !cl.contains("react-flow__minimap")
+          );
+        },
+        ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+      };
+      const dataUrl =
+        format === "svg"
+          ? await toSvg(wrapperRef.current!, options)
+          : await toPng(wrapperRef.current!, options);
+      setViewport(saved, { duration: 0 });
+      return dataUrl;
+    },
+    [fitView, getViewport, setViewport, wrapperRef]
+  );
 
   const handleExportPng = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage();
+      const dataUrl = await captureImage("png", transparentBg);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${serviceName}.png`;
@@ -405,13 +414,27 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+
+  const handleExportSvg = useCallback(async () => {
+    if (exporting || !wrapperRef.current) return;
+    setExporting(true);
+    try {
+      const dataUrl = await captureImage("svg", transparentBg);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${serviceName}.svg`;
+      a.click();
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
 
   const handleExportPdf = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage();
+      const dataUrl = await captureImage("png", transparentBg);
       const img = new Image();
       img.src = dataUrl;
       await new Promise<void>((resolve) => { img.onload = () => resolve(); });
@@ -425,19 +448,33 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
 
-  const label = exporting ? "Exporting…" : null;
+  const btnLabel = exporting ? "Exporting…" : null;
 
   return (
     <Panel position="top-right">
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={handleExportPng} disabled={exporting}>
-          {label ?? "Export PNG"}
-        </button>
-        <button onClick={handleExportPdf} disabled={exporting}>
-          {label ?? "Export PDF"}
-        </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={handleExportPng} disabled={exporting}>
+            {btnLabel ?? "Export PNG"}
+          </button>
+          <button onClick={handleExportSvg} disabled={exporting}>
+            {btnLabel ?? "Export SVG"}
+          </button>
+          <button onClick={handleExportPdf} disabled={exporting}>
+            {btnLabel ?? "Export PDF"}
+          </button>
+        </div>
+        <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={transparentBg}
+            onChange={(e) => setTransparentBg(e.target.checked)}
+            style={{ marginRight: 4 }}
+          />
+          Transparent background
+        </label>
       </div>
     </Panel>
   );
