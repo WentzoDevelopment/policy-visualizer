@@ -113,7 +113,7 @@ Exit criteria (when scheduled):
 - Collapse/expand preserves semantic flow
 - Edge rewiring remains correct and reversible
 
-### `2.0.0-beta.2` — Hardening & Stabilization → NEXT
+### `2.0.0-beta.2` — Hardening & Stabilization ✅ RELEASED
 
 Pure hardening milestone — no new features. Scope:
 - Full 71-test pass sweep (confirm no regressions from alpha.3/alpha.4 features)
@@ -131,7 +131,7 @@ Exit criteria:
 - Determinism confirmed for all existing test fixtures
 - Release notes drafted
 
-### `2.0.0-rc.1` — Release Candidate
+### `2.0.0-rc.1` — Release Candidate → NEXT
 
 - Feature freeze
 - Docs and packaging verification:

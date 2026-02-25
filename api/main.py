@@ -12,7 +12,7 @@ from api.routes.flow import router
 
 app = FastAPI(
     title="ClearPass Policy Visualizer API",
-    version="2.0.0-beta.2",
+    version="2.0.0-rc.1",
     description="Converts a ClearPass XML service export into a Flow IR diagram.",
 )
 
