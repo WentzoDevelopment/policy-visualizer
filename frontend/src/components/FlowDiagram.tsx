@@ -8,12 +8,13 @@
  * LayoutEffect is rendered *inside* <ReactFlow> so it has access to context hooks
  * (useNodesInitialized, useReactFlow) which are not available in the parent.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  Panel,
   useNodesState,
   useEdgesState,
   useNodesInitialized,
@@ -23,6 +24,8 @@ import {
   type Edge,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
 
@@ -354,6 +357,94 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// ExportPanel — rendered inside <ReactFlow> so it can call useReactFlow()
+// ---------------------------------------------------------------------------
+
+interface ExportPanelProps {
+  wrapperRef: React.RefObject<HTMLDivElement | null>;
+  serviceName: string;
+}
+
+function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
+  const { fitView, getViewport, setViewport } = useReactFlow();
+  const [exporting, setExporting] = useState(false);
+
+  const captureImage = useCallback(async (): Promise<string> => {
+    const saved = getViewport();
+    fitView({ duration: 0, padding: 0.1 });
+    // Wait two animation frames so React Flow commits the viewport change.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+    const dataUrl = await toPng(wrapperRef.current!, {
+      filter: (el: HTMLElement) => {
+        const cl = el.classList;
+        if (!cl) return true;
+        // Exclude React Flow UI chrome (controls, minimap, panels) from the export.
+        return (
+          !cl.contains("react-flow__panel") &&
+          !cl.contains("react-flow__controls") &&
+          !cl.contains("react-flow__minimap")
+        );
+      },
+    });
+    setViewport(saved, { duration: 0 });
+    return dataUrl;
+  }, [fitView, getViewport, setViewport, wrapperRef]);
+
+  const handleExportPng = useCallback(async () => {
+    if (exporting || !wrapperRef.current) return;
+    setExporting(true);
+    try {
+      const dataUrl = await captureImage();
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${serviceName}.png`;
+      a.click();
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, captureImage, serviceName, wrapperRef]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (exporting || !wrapperRef.current) return;
+    setExporting(true);
+    try {
+      const dataUrl = await captureImage();
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+      const pdf = new jsPDF({
+        orientation: img.width > img.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [img.width, img.height],
+      });
+      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      pdf.save(`${serviceName}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, captureImage, serviceName, wrapperRef]);
+
+  const label = exporting ? "Exporting…" : null;
+
+  return (
+    <Panel position="top-right">
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={handleExportPng} disabled={exporting}>
+          {label ?? "Export PNG"}
+        </button>
+        <button onClick={handleExportPdf} disabled={exporting}>
+          {label ?? "Export PDF"}
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 interface LayoutEffectProps {
   layoutApplied: boolean;
   setLayoutApplied: (val: boolean) => void;
@@ -381,6 +472,7 @@ interface Props {
 }
 
 export default function FlowDiagram({ flow }: Props) {
+  const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [layoutApplied, setLayoutApplied] = useState(false);
@@ -430,7 +522,7 @@ export default function FlowDiagram({ flow }: Props) {
   }, [flow, setNodes, setEdges]);
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
+    <div ref={flowWrapperRef} style={{ width: "100%", height: "100%" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -460,6 +552,7 @@ export default function FlowDiagram({ flow }: Props) {
           layoutApplied={layoutApplied}
           setLayoutApplied={setLayoutApplied}
         />
+        <ExportPanel wrapperRef={flowWrapperRef} serviceName={flow.service_name} />
       </ReactFlow>
     </div>
   );

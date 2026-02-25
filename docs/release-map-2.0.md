@@ -45,18 +45,16 @@ Exit criteria:
 - Backend/frontend version touchpoints identified and consistent
 
 ### `2.0.0-alpha.2` — Export Foundation
-- Add/extend backend export route support (PNG/PDF):
-  - [api/routes/flow.py](../api/routes/flow.py)
-  - [api/schemas.py](../api/schemas.py)
-  - reuse renderer in [src/renderer.py](../src/renderer.py)
-- Add frontend export controls:
-  - [frontend/src/App.tsx](../frontend/src/App.tsx)
-  - [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
-  - [frontend/src/api.ts](../frontend/src/api.ts)
+- Client-side PNG/PDF export of the React Flow canvas (no backend route):
+  - Add `html-to-image` and `jspdf` npm dependencies
+  - [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx):
+    `ExportPanel` component with "Export PNG" / "Export PDF" buttons; captures
+    the full diagram via `fitView` before capture, excludes UI chrome, restores
+    viewport after
 
 Exit criteria:
-- Current diagram can be exported as PNG/PDF
-- Error handling for invalid input is user-visible and tested
+- Current diagram can be exported as PNG/PDF (captures exactly what is on screen)
+- Full diagram is always captured regardless of current zoom/pan state
 
 ### `2.0.0-alpha.3` — Annotation and Custom Text
 - Add annotation/custom text UI:
@@ -138,14 +136,15 @@ Exit criteria:
 
 ## Epic EXP — Export Pipeline
 
-- EXP-210: Add/extend PNG/PDF export backend in [api/routes/flow.py](../api/routes/flow.py) + [src/renderer.py](../src/renderer.py)  
-  Acceptance: export endpoints return correct file types and errors.
+- EXP-210: Add `html-to-image` + `jspdf` npm deps; implement client-side capture
+  in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
+  Acceptance: PNG/PDF export captures the React Flow canvas (not the Graphviz renderer);
+  full diagram captured regardless of zoom/pan; UI chrome excluded from output.
+  _(No backend route — export is entirely client-side.)_
 
-- EXP-211: Add frontend export controls in [frontend/src/App.tsx](../frontend/src/App.tsx) and [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)  
-  Acceptance: one-click PNG/PDF export with status/error feedback.
+- EXP-211: ~~Add frontend export controls~~ — merged into EXP-210.
 
-- EXP-212: Add API export test coverage in [tests/test_api_routes.py](../tests/test_api_routes.py)  
-  Acceptance: happy path and failure path tests pass.
+- EXP-212: ~~Add API export test coverage~~ — removed (no new API route).
 
 ## Epic ANN — Annotations & Custom Text
 
