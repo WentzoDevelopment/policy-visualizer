@@ -13,9 +13,11 @@ export default function App() {
   const [flow, setFlow] = useState<FlowIR | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   async function handleFileSelect(file: File) {
     fileRef.current = file;
+    setFileName(file.name);
     setFlow(null);
     setServices([]);
     setSelectedService(null);
@@ -59,6 +61,7 @@ export default function App() {
       <UploadPanel
         services={services}
         selectedService={selectedService}
+        fileName={fileName}
         loading={loading}
         error={error}
         onFileSelect={handleFileSelect}

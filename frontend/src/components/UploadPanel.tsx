@@ -7,6 +7,7 @@ import type { ServiceSummary } from "../api";
 interface Props {
   services: ServiceSummary[];
   selectedService: string | null;
+  fileName: string | null;
   loading: boolean;
   error: string | null;
   onFileSelect: (file: File) => void;
@@ -16,6 +17,7 @@ interface Props {
 export default function UploadPanel({
   services,
   selectedService,
+  fileName,
   loading,
   error,
   onFileSelect,
@@ -75,6 +77,16 @@ export default function UploadPanel({
         </p>
       </div>
 
+      {/* Current file */}
+      {fileName && (
+        <div style={fileNameStyle}>
+          <span style={{ marginRight: 6 }}>📄</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {fileName}
+          </span>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div style={errorStyle}>
@@ -127,6 +139,18 @@ const dropZoneStyle: React.CSSProperties = {
   textAlign: "center",
   cursor: "pointer",
   transition: "border-color 0.15s, background 0.15s",
+};
+
+const fileNameStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: "8px 10px",
+  background: "#f0fdf4",
+  border: "1px solid #bbf7d0",
+  borderRadius: 6,
+  fontSize: 12,
+  color: "#15803d",
+  display: "flex",
+  alignItems: "center",
 };
 
 const errorStyle: React.CSSProperties = {
