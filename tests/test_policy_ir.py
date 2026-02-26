@@ -106,7 +106,7 @@ def _minimal_raw(**overrides) -> dict:
     return base
 
 
-def test_unresolved_enforcement_profile_raises():
+def test_unresolved_enforcement_profile_creates_placeholder():
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -118,11 +118,12 @@ def test_unresolved_enforcement_profile_raises():
             }],
         }]
     )
-    with pytest.raises(ValueError, match="GhostProfile"):
-        build(raw)
+    ir = build(raw)
+    profiles = {p.name for p in ir.enforcement_profiles.values()}
+    assert "GhostProfile" in profiles
 
 
-def test_unresolved_role_in_rule_raises():
+def test_unresolved_role_in_rule_creates_placeholder():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -135,11 +136,12 @@ def test_unresolved_role_in_rule_raises():
             "defaultRole": "",
         }]
     )
-    with pytest.raises(ValueError, match="GhostRole"):
-        build(raw)
+    ir = build(raw)
+    roles = {r.name for r in ir.roles.values()}
+    assert "GhostRole" in roles
 
 
-def test_unresolved_default_role_raises():
+def test_unresolved_default_role_creates_placeholder():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -148,12 +150,13 @@ def test_unresolved_default_role_raises():
             "defaultRole": "NonExistentRole",
         }]
     )
-    with pytest.raises(ValueError, match="NonExistentRole"):
-        build(raw)
+    ir = build(raw)
+    roles = {r.name for r in ir.roles.values()}
+    assert "NonExistentRole" in roles
 
 
-def test_multiple_unresolved_refs_all_reported():
-    """All unresolved names should appear in the single ValueError message."""
+def test_multiple_unresolved_profiles_all_created():
+    """All unresolved profile names should become placeholder entries."""
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -165,8 +168,7 @@ def test_multiple_unresolved_refs_all_reported():
             }],
         }]
     )
-    with pytest.raises(ValueError) as exc_info:
-        build(raw)
-    msg = str(exc_info.value)
-    assert "Alpha" in msg
-    assert "Beta" in msg
+    ir = build(raw)
+    profiles = {p.name for p in ir.enforcement_profiles.values()}
+    assert "Alpha" in profiles
+    assert "Beta" in profiles

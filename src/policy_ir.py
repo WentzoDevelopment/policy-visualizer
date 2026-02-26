@@ -7,11 +7,14 @@ Uses stable deterministic IDs derived from object names.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from .normalizer import BooleanExpr, normalize
+
+logger = logging.getLogger(__name__)
 
 
 def _stable_id(name: str) -> str:
@@ -141,6 +144,7 @@ class PolicyIR:
     roles: dict[str, Role] = field(default_factory=dict)
     auth_methods: dict[str, AuthMethod] = field(default_factory=dict)
     auth_sources: dict[str, AuthSource] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +159,6 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     # fields is non-breaking and does not require a schema version bump.
     # See CLAUDE.md § 12 "Versioning & Release Policy" for full rules.
     ir = PolicyIR(version="1.0", source_file=source_file)
-    unresolved: list[str] = []
 
     # Roles
     for r in raw.get("roles", []):
@@ -225,8 +228,17 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
                 ids.append(profile_by_name[n].id)
             else:
                 ctx = f" ({context})" if context else ""
-                unresolved.append(f"EnforcementProfile '{n}' not found{ctx}")
-                ids.append(_stable_id(n))  # placeholder; ValueError raised at end
+                msg = f"EnforcementProfile '{n}' not found{ctx} — using placeholder"
+                logger.warning("Unresolved reference: %s", msg)
+                ir.warnings.append(msg)
+                pid = _stable_id(n)
+                placeholder = EnforcementProfile(
+                    id=pid, name=n, profile_type="builtin",
+                    description=f"Built-in profile (not in XML export)",
+                )
+                ir.enforcement_profiles[pid] = placeholder
+                profile_by_name[n] = placeholder
+                ids.append(pid)
         return ids, names
 
     # Role mapping policies
@@ -242,9 +254,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
                 role_name = role_result.get("displayValue", "")
                 role = role_by_name.get(role_name)
                 if role is None and role_name:
-                    unresolved.append(
-                        f"Role '{role_name}' not found (rule in RoleMappingPolicy '{rm['name']}')"
-                    )
+                    msg = f"Role '{role_name}' not found (rule in RoleMappingPolicy '{rm['name']}') — using placeholder"
+                    logger.warning("Unresolved reference: %s", msg)
+                    ir.warnings.append(msg)
+                    rid = _stable_id(role_name)
+                    role = Role(id=rid, name=role_name, description="Built-in role (not in XML export)")
+                    ir.roles[rid] = role
+                    role_by_name[role_name] = role
                 then = SetRole(
                     role_id=role.id if role else _stable_id(role_name),
                     role_name=role_name,
@@ -257,9 +273,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         default_role_name = rm.get("defaultRole", "")
         default_role = role_by_name.get(default_role_name)
         if default_role_name and default_role is None:
-            unresolved.append(
-                f"Role '{default_role_name}' not found (default in RoleMappingPolicy '{rm['name']}')"
-            )
+            msg = f"Role '{default_role_name}' not found (default in RoleMappingPolicy '{rm['name']}') — using placeholder"
+            logger.warning("Unresolved reference: %s", msg)
+            ir.warnings.append(msg)
+            rid = _stable_id(default_role_name)
+            default_role = Role(id=rid, name=default_role_name, description="Built-in role (not in XML export)")
+            ir.roles[rid] = default_role
+            role_by_name[default_role_name] = default_role
         default = SetRole(
             role_id=default_role.id if default_role else _stable_id(default_role_name),
             role_name=default_role_name,
@@ -294,11 +314,19 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         default_profile_name = ep.get("defaultProfile", "")
         default_profile = profile_by_name.get(default_profile_name)
         if default_profile_name and default_profile is None:
-            unresolved.append(
-                f"EnforcementProfile '{default_profile_name}' not found (default in EnforcementPolicy '{ep['name']}')"
+            msg = f"EnforcementProfile '{default_profile_name}' not found (default in EnforcementPolicy '{ep['name']}') — using placeholder"
+            logger.warning("Unresolved reference: %s", msg)
+            ir.warnings.append(msg)
+            pid = _stable_id(default_profile_name)
+            placeholder = EnforcementProfile(
+                id=pid, name=default_profile_name, profile_type="builtin",
+                description="Built-in profile (not in XML export)",
             )
+            ir.enforcement_profiles[pid] = placeholder
+            profile_by_name[default_profile_name] = placeholder
+            default_profile = placeholder
         default = ApplyProfiles(
-            profile_ids=[default_profile.id] if default_profile else [_stable_id(default_profile_name)],
+            profile_ids=[default_profile.id] if default_profile else [],
             profile_names=[default_profile_name] if default_profile_name else [],
         ) if default_profile_name else None
 
@@ -321,7 +349,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         for mn in method_names:
             m = method_by_name.get(mn)
             if m is None and mn:
-                unresolved.append(f"AuthMethod '{mn}' not found (referenced in Service '{svc['name']}')")
+                msg = f"AuthMethod '{mn}' not found (referenced in Service '{svc['name']}') — using placeholder"
+                logger.warning("Unresolved reference: %s", msg)
+                ir.warnings.append(msg)
+                mid = _stable_id(mn)
+                m = AuthMethod(id=mid, name=mn, method_type="builtin", description="Built-in method (not in XML export)")
+                ir.auth_methods[mid] = m
+                method_by_name[mn] = m
             method_ids.append(m.id if m else _stable_id(mn))
 
         source_ids = []
@@ -329,21 +363,31 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         for sn in source_names:
             s = source_by_name.get(sn)
             if s is None and sn:
-                unresolved.append(f"AuthSource '{sn}' not found (referenced in Service '{svc['name']}')")
+                msg = f"AuthSource '{sn}' not found (referenced in Service '{svc['name']}') — using placeholder"
+                logger.warning("Unresolved reference: %s", msg)
+                ir.warnings.append(msg)
+                sid = _stable_id(sn)
+                s = AuthSource(id=sid, name=sn, source_type="builtin", description="Built-in source (not in XML export)")
+                ir.auth_sources[sid] = s
+                source_by_name[sn] = s
             source_ids.append(s.id if s else _stable_id(sn))
 
         rm_names = svc.get("roleMappings", [])
         rm_name = rm_names[0] if rm_names else ""
         rm = rm_by_name.get(rm_name)
         if rm_name and rm is None:
-            unresolved.append(f"RoleMappingPolicy '{rm_name}' not found (referenced in Service '{svc['name']}')")
+            msg = f"RoleMappingPolicy '{rm_name}' not found (referenced in Service '{svc['name']}') — using placeholder"
+            logger.warning("Unresolved reference: %s", msg)
+            ir.warnings.append(msg)
         rm_id = rm.id if rm else _stable_id(rm_name)
 
         ep_names = svc.get("enfPolicies", [])
         ep_name = ep_names[0] if ep_names else ""
         ep = ep_by_name.get(ep_name)
         if ep_name and ep is None:
-            unresolved.append(f"EnforcementPolicy '{ep_name}' not found (referenced in Service '{svc['name']}')")
+            msg = f"EnforcementPolicy '{ep_name}' not found (referenced in Service '{svc['name']}') — using placeholder"
+            logger.warning("Unresolved reference: %s", msg)
+            ir.warnings.append(msg)
         ep_id = ep.id if ep else _stable_id(ep_name)
 
         ir.services[svid] = Service(
@@ -363,8 +407,5 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             enforcement_policy_id=ep_id,
             enforcement_policy_name=ep_name,
         )
-
-    if unresolved:
-        raise ValueError("Unresolved references:\n" + "\n".join(unresolved))
 
     return ir

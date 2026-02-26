@@ -44,6 +44,34 @@ def test_op_matches_any_predicate_maps_to_in():
     assert Op.from_raw("MATCHES_ANY") == Op.in_
 
 
+def test_op_begins_with_maps_to_starts_with():
+    assert Op.from_raw("BEGINS_WITH") == Op.starts_with
+
+
+def test_op_matches_regex():
+    assert Op.from_raw("MATCHES_REGEX") == Op.regex
+
+
+def test_op_not_matches_regex():
+    assert Op.from_raw("NOT_MATCHES_REGEX") == Op.not_regex
+
+
+def test_op_belongs_to_alias():
+    assert Op.from_raw("BELONGS_TO") == Op.belongs_to_group
+
+
+def test_op_less_than_or_equals():
+    assert Op.from_raw("LESS_THAN_OR_EQUALS") == Op.less_than_or_equals
+
+
+def test_op_greater_than_or_equals():
+    assert Op.from_raw("GREATER_THAN_OR_EQUALS") == Op.greater_than_or_equals
+
+
+def test_op_equals_ignore_case():
+    assert Op.from_raw("EQUALS_IGNORE_CASE") == Op.equals_ignore_case
+
+
 # ---------------------------------------------------------------------------
 # Single predicate unwrapping
 # ---------------------------------------------------------------------------
