@@ -9,6 +9,7 @@ import "./App.css";
 export default function App() {
   const fileRef = useRef<File | null>(null);
   const [services, setServices] = useState<ServiceSummary[]>([]);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
   const [flow, setFlow] = useState<FlowIR | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +18,15 @@ export default function App() {
     fileRef.current = file;
     setFlow(null);
     setServices([]);
+    setSelectedService(null);
     setError(null);
     setLoading(true);
     try {
       const result = await fetchServices(file);
+      setServices(result.services);
       if (result.services.length === 1) {
-        // Only one service — skip the picker and render immediately
+        // Only one service — render immediately
         await loadFlow(file, result.services[0].name);
-      } else {
-        setServices(result.services);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -40,7 +41,7 @@ export default function App() {
     try {
       const flowData = await fetchFlow(file, serviceName);
       setFlow(flowData);
-      setServices([]);
+      setSelectedService(serviceName);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -57,6 +58,7 @@ export default function App() {
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <UploadPanel
         services={services}
+        selectedService={selectedService}
         loading={loading}
         error={error}
         onFileSelect={handleFileSelect}

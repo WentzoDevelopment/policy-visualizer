@@ -6,6 +6,7 @@ import type { ServiceSummary } from "../api";
 
 interface Props {
   services: ServiceSummary[];
+  selectedService: string | null;
   loading: boolean;
   error: string | null;
   onFileSelect: (file: File) => void;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function UploadPanel({
   services,
+  selectedService,
   loading,
   error,
   onFileSelect,
@@ -87,17 +89,20 @@ export default function UploadPanel({
             Select a service to visualize:
           </p>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {services.map((svc) => (
-              <li key={svc.id} style={{ marginBottom: 6 }}>
-                <button
-                  style={serviceButtonStyle}
-                  onClick={() => onServiceSelect(svc.name)}
-                  title={svc.description || undefined}
-                >
-                  {svc.name}
-                </button>
-              </li>
-            ))}
+            {services.map((svc) => {
+              const isActive = svc.name === selectedService;
+              return (
+                <li key={svc.id} style={{ marginBottom: 6 }}>
+                  <button
+                    style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
+                    onClick={() => onServiceSelect(svc.name)}
+                    title={svc.description || undefined}
+                  >
+                    {svc.name}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -145,4 +150,12 @@ const serviceButtonStyle: React.CSSProperties = {
   fontSize: 12,
   fontFamily: "inherit",
   color: "#111827",
+};
+
+const activeServiceButtonStyle: React.CSSProperties = {
+  ...serviceButtonStyle,
+  background: "#eef2ff",
+  border: "1px solid #6366f1",
+  color: "#4338ca",
+  fontWeight: 600,
 };
