@@ -72,6 +72,42 @@ def test_op_equals_ignore_case():
     assert Op.from_raw("EQUALS_IGNORE_CASE") == Op.equals_ignore_case
 
 
+def test_op_not_begins_with():
+    assert Op.from_raw("NOT_BEGINS_WITH") == Op.not_starts_with
+
+
+def test_op_not_belongs_to_group():
+    assert Op.from_raw("NOT_BELONGS_TO_GROUP") == Op.not_belongs_to_group
+
+
+def test_op_not_belongs_to_alias():
+    assert Op.from_raw("NOT_BELONGS_TO") == Op.not_belongs_to_group
+
+
+def test_op_not_equals_ignore_case():
+    assert Op.from_raw("NOT_EQUALS_IGNORE_CASE") == Op.not_equals_ignore_case
+
+
+def test_op_matches_exact():
+    assert Op.from_raw("MATCHES_EXACT") == Op.matches_exact
+
+
+def test_op_not_matches_exact():
+    assert Op.from_raw("NOT_MATCHES_EXACT") == Op.not_matches_exact
+
+
+def test_op_not_matches_all():
+    assert Op.from_raw("NOT_MATCHES_ALL") == Op.not_matches_all
+
+
+def test_op_not_matches_any():
+    assert Op.from_raw("NOT_MATCHES_ANY") == Op.not_matches_any
+
+
+def test_op_in_range():
+    assert Op.from_raw("IN_RANGE") == Op.in_range
+
+
 # ---------------------------------------------------------------------------
 # Single predicate unwrapping
 # ---------------------------------------------------------------------------

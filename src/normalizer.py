@@ -29,8 +29,16 @@ class Op(str, Enum):
     greater_than = "greater_than"
     greater_than_or_equals = "greater_than_or_equals"
     equals_ignore_case = "equals_ignore_case"
+    not_equals_ignore_case = "not_equals_ignore_case"
     not_regex = "not_regex"
     belongs_to_group = "belongs_to_group"
+    not_belongs_to_group = "not_belongs_to_group"
+    not_starts_with = "not_starts_with"
+    matches_exact = "matches_exact"
+    not_matches_exact = "not_matches_exact"
+    not_matches_all = "not_matches_all"
+    not_matches_any = "not_matches_any"
+    in_range = "in_range"
 
     @classmethod
     def from_raw(cls, raw: str) -> "Op":
@@ -60,6 +68,15 @@ class Op(str, Enum):
             "GREATER_THAN_OR_EQUALS": cls.greater_than_or_equals,
             "BELONGS_TO_GROUP": cls.belongs_to_group,
             "BELONGS_TO": cls.belongs_to_group,
+            "NOT_BELONGS_TO_GROUP": cls.not_belongs_to_group,
+            "NOT_BELONGS_TO": cls.not_belongs_to_group,
+            "NOT_BEGINS_WITH": cls.not_starts_with,
+            "NOT_EQUALS_IGNORE_CASE": cls.not_equals_ignore_case,
+            "MATCHES_EXACT": cls.matches_exact,
+            "NOT_MATCHES_EXACT": cls.not_matches_exact,
+            "NOT_MATCHES_ALL": cls.not_matches_all,
+            "NOT_MATCHES_ANY": cls.not_matches_any,
+            "IN_RANGE": cls.in_range,
         }
         upper = raw.upper()
         if upper not in mapping:
