@@ -9,6 +9,13 @@ This roadmap targets first public GA release `2.0.0` with:
 - Hardening: full test sweep, determinism verification, Docker packaging validation
 - Cisco ISE work limited to discovery/spec only (no ISE parser implementation in 2.0.0)
 
+Connector routing policy baseline (implemented in interactive flow):
+- Left-to-right primary progression
+- Decision exits: `YES`/`PASS` on right, `NO` on bottom
+- Process exits: forward/default on right, `FAIL` on bottom
+- End-node entry: forward on left, `NO`/`FAIL` on top
+- Chain constraints: rm/enf decisions remain fixed x-columns; actions remain to the right
+
 ## Versioning Scheme
 
 Use strict Semantic Versioning:
