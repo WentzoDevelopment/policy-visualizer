@@ -377,39 +377,59 @@ interface ExportPanelProps {
 }
 
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
-  const { fitView, getViewport, setViewport } = useReactFlow();
+  const { getNodes } = useReactFlow();
   const [exporting, setExporting] = useState(false);
   const [transparentBg, setTransparentBg] = useState(false);
 
+  /**
+   * Capture the diagram by rendering .react-flow__viewport directly with an
+   * overridden CSS transform.  This is the official React Flow approach:
+   * we bypass the current viewport zoom/pan entirely and render at scale=1
+   * with a tight bounding box — no wasted whitespace, no viewport-size dependency.
+   */
   const captureImage = useCallback(
-    async (format: "png" | "svg", transparent: boolean): Promise<string> => {
-      const saved = getViewport();
-      fitView({ duration: 0, padding: 0.1 });
-      // Wait two animation frames so React Flow commits the viewport change.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      );
+    async (
+      format: "png" | "svg",
+      transparent: boolean,
+      pixelRatio = 4,
+    ): Promise<string> => {
+      const viewportEl = wrapperRef.current!.querySelector(
+        ".react-flow__viewport"
+      ) as HTMLElement;
+      if (!viewportEl) throw new Error("Could not find .react-flow__viewport");
+
+      // Compute tight bounding box of all nodes.
+      const nodes = getNodes();
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of nodes) {
+        const w = n.measured?.width ?? 200;
+        const h = n.measured?.height ?? 100;
+        minX = Math.min(minX, n.position.x);
+        minY = Math.min(minY, n.position.y);
+        maxX = Math.max(maxX, n.position.x + w);
+        maxY = Math.max(maxY, n.position.y + h);
+      }
+      const PAD = 50;
+      const imgW = Math.ceil(maxX - minX + PAD * 2);
+      const imgH = Math.ceil(maxY - minY + PAD * 2);
+
       const options = {
-        filter: (el: HTMLElement) => {
-          const cl = el.classList;
-          if (!cl) return true;
-          // Exclude React Flow UI chrome (controls, minimap, panels) from the export.
-          return (
-            !cl.contains("react-flow__panel") &&
-            !cl.contains("react-flow__controls") &&
-            !cl.contains("react-flow__minimap")
-          );
-        },
         ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        width: imgW,
+        height: imgH,
+        style: {
+          width: `${imgW}px`,
+          height: `${imgH}px`,
+          transform: `translate(${-minX + PAD}px, ${-minY + PAD}px) scale(1)`,
+        },
+        pixelRatio,
       };
-      const dataUrl =
-        format === "svg"
-          ? await toSvg(wrapperRef.current!, options)
-          : await toPng(wrapperRef.current!, options);
-      setViewport(saved, { duration: 0 });
-      return dataUrl;
+
+      return format === "svg"
+        ? await toSvg(viewportEl, options)
+        : await toPng(viewportEl, options);
     },
-    [fitView, getViewport, setViewport, wrapperRef]
+    [getNodes, wrapperRef]
   );
 
   const handleExportPng = useCallback(async () => {
@@ -444,16 +464,20 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg);
+      const pdfPixelRatio = 5;
+      const dataUrl = await captureImage("png", transparentBg, pdfPixelRatio);
       const img = new Image();
       img.src = dataUrl;
       await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+      const scale = pdfPixelRatio;
+      const pdfW = img.width / scale;
+      const pdfH = img.height / scale;
       const pdf = new jsPDF({
-        orientation: img.width > img.height ? "landscape" : "portrait",
+        orientation: pdfW > pdfH ? "landscape" : "portrait",
         unit: "px",
-        format: [img.width, img.height],
+        format: [pdfW, pdfH],
       });
-      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      pdf.addImage(dataUrl, "PNG", 0, 0, pdfW, pdfH);
       pdf.save(`${serviceName}.pdf`);
     } finally {
       setExporting(false);
