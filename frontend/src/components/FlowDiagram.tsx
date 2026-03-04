@@ -376,6 +376,23 @@ interface ExportPanelProps {
   serviceName: string;
 }
 
+// Maximum total pixels for rasterised exports.  Keeps file size and memory
+// usage reasonable even for very large diagrams.
+const EXPORT_MAX_PIXELS_PNG = 16_000_000; // ~16MP (e.g. 4000×4000)
+const EXPORT_MAX_PIXELS_PDF = 25_000_000; // ~25MP — higher budget for print quality
+const EXPORT_PADDING = 50; // px padding around diagram in exports
+
+/** Compute the highest integer pixelRatio that stays within a pixel budget. */
+function clampPixelRatio(
+  logicalW: number,
+  logicalH: number,
+  desired: number,
+  maxPixels: number,
+): number {
+  const ratio = Math.sqrt(maxPixels / (logicalW * logicalH));
+  return Math.max(1, Math.min(desired, Math.floor(ratio)));
+}
+
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
   const { getNodes } = useReactFlow();
   const [exporting, setExporting] = useState(false);
@@ -391,27 +408,31 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     async (
       format: "png" | "svg",
       transparent: boolean,
-      pixelRatio = 4,
-    ): Promise<string> => {
+      maxPixels: number,
+    ): Promise<{ dataUrl: string; pixelRatio: number }> => {
       const viewportEl = wrapperRef.current!.querySelector(
         ".react-flow__viewport"
       ) as HTMLElement;
       if (!viewportEl) throw new Error("Could not find .react-flow__viewport");
 
-      // Compute tight bounding box of all nodes.
       const nodes = getNodes();
+      if (nodes.length === 0) throw new Error("No nodes to export");
+
+      // Compute tight bounding box using per-type fallback sizes.
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const n of nodes) {
-        const w = n.measured?.width ?? 200;
-        const h = n.measured?.height ?? 100;
+        const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+        const w = n.measured?.width ?? fb.width;
+        const h = n.measured?.height ?? fb.height;
         minX = Math.min(minX, n.position.x);
         minY = Math.min(minY, n.position.y);
         maxX = Math.max(maxX, n.position.x + w);
         maxY = Math.max(maxY, n.position.y + h);
       }
-      const PAD = 50;
-      const imgW = Math.ceil(maxX - minX + PAD * 2);
-      const imgH = Math.ceil(maxY - minY + PAD * 2);
+
+      const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
+      const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
+      const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
 
       const options = {
         ...(transparent ? {} : { backgroundColor: "#ffffff" }),
@@ -420,14 +441,16 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
         style: {
           width: `${imgW}px`,
           height: `${imgH}px`,
-          transform: `translate(${-minX + PAD}px, ${-minY + PAD}px) scale(1)`,
+          transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
         },
         pixelRatio,
       };
 
-      return format === "svg"
+      const dataUrl = format === "svg"
         ? await toSvg(viewportEl, options)
         : await toPng(viewportEl, options);
+
+      return { dataUrl, pixelRatio };
     },
     [getNodes, wrapperRef]
   );
@@ -436,7 +459,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg);
+      const { dataUrl } = await captureImage("png", transparentBg, EXPORT_MAX_PIXELS_PNG);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${serviceName}.png`;
@@ -450,7 +473,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("svg", transparentBg);
+      const { dataUrl } = await captureImage("svg", transparentBg, EXPORT_MAX_PIXELS_PNG);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${serviceName}.svg`;
@@ -464,14 +487,15 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const pdfPixelRatio = 5;
-      const dataUrl = await captureImage("png", transparentBg, pdfPixelRatio);
+      const { dataUrl, pixelRatio } = await captureImage("png", transparentBg, EXPORT_MAX_PIXELS_PDF);
       const img = new Image();
       img.src = dataUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
-      const scale = pdfPixelRatio;
-      const pdfW = img.width / scale;
-      const pdfH = img.height / scale;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to decode exported image"));
+      });
+      const pdfW = img.width / pixelRatio;
+      const pdfH = img.height / pixelRatio;
       const pdf = new jsPDF({
         orientation: pdfW > pdfH ? "landscape" : "portrait",
         unit: "px",
