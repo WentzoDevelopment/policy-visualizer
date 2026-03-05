@@ -11,10 +11,13 @@ export interface FlowNode {
   rank_group: string;
 }
 
+export type FlowEdgeLabel = "" | "YES" | "NO" | "FAIL" | "PASS" | "CONTINUE";
+
 export interface FlowEdge {
   from_id: string;
   to_id: string;
-  label: string;
+  label: FlowEdgeLabel;
+  reason: string;
 }
 
 export interface FlowIR {
@@ -23,6 +26,7 @@ export interface FlowIR {
   service_type: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  warnings: string[];
 }
 
 export interface ServiceSummary {
@@ -49,11 +53,11 @@ export async function fetchServices(file: File): Promise<ServiceListResponse> {
   return res.json();
 }
 
-export async function fetchFlow(file: File, serviceName?: string): Promise<FlowIR> {
+export async function fetchFlow(file: File, serviceId?: string): Promise<FlowIR> {
   const form = new FormData();
   form.append("file", file);
-  const url = serviceName
-    ? `${BASE}/flow?service=${encodeURIComponent(serviceName)}`
+  const url = serviceId
+    ? `${BASE}/flow?service=${encodeURIComponent(serviceId)}`
     : `${BASE}/flow`;
   const res = await fetch(url, { method: "POST", body: form });
   if (!res.ok) {

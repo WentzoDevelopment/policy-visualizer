@@ -14,6 +14,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
   async function handleFileSelect(file: File) {
     fileRef.current = file;
@@ -28,7 +29,7 @@ export default function App() {
       setServices(result.services);
       if (result.services.length === 1) {
         // Only one service — render immediately
-        await loadFlow(file, result.services[0].name);
+        await loadFlow(file, result.services[0].id);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -37,13 +38,14 @@ export default function App() {
     }
   }
 
-  async function loadFlow(file: File, serviceName: string) {
+  async function loadFlow(file: File, serviceId: string) {
     setError(null);
+    setDismissedWarnings(false);
     setLoading(true);
     try {
-      const flowData = await fetchFlow(file, serviceName);
+      const flowData = await fetchFlow(file, serviceId);
       setFlow(flowData);
-      setSelectedService(serviceName);
+      setSelectedService(serviceId);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -51,9 +53,9 @@ export default function App() {
     }
   }
 
-  async function handleServiceSelect(name: string) {
+  async function handleServiceSelect(id: string) {
     if (!fileRef.current) return;
-    await loadFlow(fileRef.current, name);
+    await loadFlow(fileRef.current, id);
   }
 
   return (
@@ -68,6 +70,29 @@ export default function App() {
         onServiceSelect={handleServiceSelect}
       />
       <div style={{ flex: 1, position: "relative", background: "#f9fafb" }}>
+        {flow && flow.warnings.length > 0 && !dismissedWarnings && (
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+            background: "#fef3c7", borderBottom: "1px solid #f59e0b",
+            padding: "8px 16px", fontFamily: "Helvetica, Arial, sans-serif",
+            fontSize: 13, color: "#92400e", display: "flex",
+            justifyContent: "space-between", alignItems: "flex-start",
+          }}>
+            <div>
+              <strong>Partial result</strong> — some references could not be resolved:
+              <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                {flow.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+            <button
+              onClick={() => setDismissedWarnings(true)}
+              style={{ marginLeft: 16, background: "none", border: "none",
+                       cursor: "pointer", fontSize: 16, color: "#92400e" }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {flow ? (
           <ReactFlowProvider>
             <FlowDiagram flow={flow} />

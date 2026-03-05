@@ -23,6 +23,7 @@ from .policy_ir import (
 )
 
 NodeType = Literal["start", "process", "decision", "action", "end"]
+EdgeLabel = Literal["", "YES", "NO", "FAIL", "PASS", "CONTINUE"]
 
 
 @dataclass
@@ -39,7 +40,8 @@ class FlowNode:
 class FlowEdge:
     from_id: str
     to_id: str
-    label: str = ""
+    label: EdgeLabel = ""
+    reason: str = ""      # human-readable cause for conditional edges (e.g. "usernotfound")
 
 
 @dataclass
@@ -54,8 +56,8 @@ class FlowIR:
         self.nodes.append(node)
         return node
 
-    def add_edge(self, from_id: str, to_id: str, label: str = "") -> None:
-        self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label))
+    def add_edge(self, from_id: str, to_id: str, label: EdgeLabel = "", reason: str = "") -> None:
+        self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label, reason=reason))
 
 
 _DENY_PROFILE_TYPES = {"radius_reject", "tacacs_other"}

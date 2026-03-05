@@ -4,7 +4,12 @@ Mirrors the FlowIR dataclass structure for JSON serialization.
 """
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
+
+
+FlowEdgeLabel = Literal["", "YES", "NO", "FAIL", "PASS", "CONTINUE"]
 
 
 class FlowNodeSchema(BaseModel):
@@ -19,7 +24,8 @@ class FlowNodeSchema(BaseModel):
 class FlowEdgeSchema(BaseModel):
     from_id: str
     to_id: str
-    label: str = ""
+    label: FlowEdgeLabel = ""
+    reason: str = ""      # human-readable cause for conditional edges (e.g. "usernotfound")
 
 
 class FlowIRSchema(BaseModel):
