@@ -27,7 +27,7 @@ import {
   type EdgeChange,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import { toPng, toSvg } from "html-to-image";
+import { toPng, toSvg, toJpeg } from "html-to-image";
 import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
@@ -502,9 +502,8 @@ interface ExportPanelProps {
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
-const EXPORT_MAX_PIXELS_PNG = 16_000_000; // ~16 MP  (e.g. 4000×4000)
-const EXPORT_MAX_PIXELS_PDF = 25_000_000; // ~25 MP  — higher budget for print quality
-const EXPORT_PADDING        = 50;         // px padding around diagram in exports
+const EXPORT_MAX_PIXELS = 16_000_000; // ~16 MP  (e.g. 4000×4000)
+const EXPORT_PADDING    = 50;         // px padding around diagram in exports
 
 /** Compute the highest integer pixelRatio that stays within a pixel budget. */
 function clampPixelRatio(
@@ -532,7 +531,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
    */
   const captureImage = useCallback(
     async (
-      format: "png" | "svg",
+      format: "png" | "svg" | "jpeg",
       transparent: boolean,
       withGrid: boolean,
       maxPixels: number,
@@ -584,6 +583,8 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
 
       const dataUrl = format === "svg"
         ? await toSvg(viewportEl, options)
+        : format === "jpeg"
+        ? await toJpeg(viewportEl, { ...options, quality: 0.92 })
         : await toPng(viewportEl, options);
 
       return { dataUrl, pixelRatio };
@@ -602,7 +603,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const { dataUrl } = await captureImage("png", transparentBg, includeGrid, EXPORT_MAX_PIXELS_PNG);
+      const { dataUrl } = await captureImage("png", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
       download(dataUrl, `${serviceName}.png`);
     } finally {
       setExporting(false);
@@ -613,7 +614,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const { dataUrl } = await captureImage("svg", transparentBg, includeGrid, EXPORT_MAX_PIXELS_PNG);
+      const { dataUrl } = await captureImage("svg", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
       download(dataUrl, `${serviceName}.svg`);
     } finally {
       setExporting(false);
@@ -624,7 +625,8 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const { dataUrl, pixelRatio } = await captureImage("png", transparentBg, includeGrid, EXPORT_MAX_PIXELS_PDF);
+      // Use JPEG for PDF — dramatically smaller file size vs PNG with no visible quality loss.
+      const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
       const img = new Image();
       img.src = dataUrl;
       await new Promise<void>((resolve, reject) => {
@@ -638,7 +640,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
         unit: "px",
         format: [pdfW, pdfH],
       });
-      pdf.addImage(dataUrl, "PNG", 0, 0, pdfW, pdfH);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
       pdf.save(`${serviceName}.pdf`);
     } finally {
       setExporting(false);
